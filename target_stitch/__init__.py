@@ -23,7 +23,7 @@ from target_stitch.exceptions import TargetStitchException
 from decimal import getcontext
 #NB> because the target may validate decimal values, this precision must be at least 1 greater than the maximum precision decimal output by the tap.
 #tap-postgres, for instance, will allow up to 38 digits of precision
-getcontext().prec = 40
+getcontext().prec = 40 * 2
 
 
 DEFAULT_STITCH_URL = 'https://api.stitchdata.com/v2/import/batch'
