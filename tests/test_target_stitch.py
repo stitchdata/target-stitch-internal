@@ -9,7 +9,7 @@ import target_stitch
 class DummyHandler:
     def __init__(self):
         self.batches = []
-        
+
     def handle_batch(self, messages, *args, **kwargs):
         self.batches.append(messages)
 
@@ -69,7 +69,10 @@ class TestTarget(unittest.TestCase):
     def setUp(self):
         self.handler = DummyHandler()
         self.state_writer = io.StringIO()
-        self.target_stitch = target_stitch.TargetStitch([self.handler], self.state_writer, 30)
+        self.target_stitch = target_stitch.TargetStitch(
+            handlers=[self.handler],
+            state_writer=self.state_writer,
+            batch_delay_seconds=30)
 
     def test_schema_registration(self):
         self.target_stitch.consume([
@@ -95,6 +98,7 @@ class TestTarget(unittest.TestCase):
             [singer.parse_message(r) for r in test2_records],
         ]
         self.assertEqual(expected, self.handler.batches)
+        # ensure we have flushed everything
         self.assertEqual([], self.target_stitch.messages)
 
     def test_flush_on_version_change(self):
@@ -112,6 +116,7 @@ class TestTarget(unittest.TestCase):
             [singer.parse_message(r) for r in version2_records],
         ]
         self.assertEqual(expected, self.handler.batches)
+        # ensure we have flushed everything
         self.assertEqual([], self.target_stitch.messages)
 
     def test_flush_on_max_bytes(self):
@@ -126,6 +131,7 @@ class TestTarget(unittest.TestCase):
 
         expected = [[singer.parse_message(r)] for r in test1_records]
         self.assertEqual(expected, self.handler.batches)
+        # ensure we have flushed everything
         self.assertEqual([], self.target_stitch.messages)
         target_stitch.MAX_BYTES_PER_FLUSH = bytes_per_flush
 
@@ -141,6 +147,7 @@ class TestTarget(unittest.TestCase):
 
         expected = [[singer.parse_message(r)] for r in test1_records]
         self.assertEqual(expected, self.handler.batches)
+        # ensure we have flushed everything
         self.assertEqual([], self.target_stitch.messages)
         target_stitch.MAX_RECORDS_PER_FLUSH = records_per_flush
 

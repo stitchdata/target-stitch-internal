@@ -18,7 +18,7 @@ from requests.exceptions import RequestException, HTTPError
 from target_stitch.timings import Timings
 from target_stitch.exceptions import TargetStitchException
 from jsonschema import SchemaError, ValidationError, Draft4Validator, FormatChecker
-from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, marshall_date_times, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version
+from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, marshall_date_times, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version, generate_sequence
 from jsonschema.exceptions import UnknownType
 
 LOGGER = singer.get_logger().getChild('target_stitch')
@@ -93,7 +93,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                                               'namespace' : self.connection_ns,
                                               'table_name' : table_name,
                                               'action'     : 'upsert',
-                                              'sequence'   : self.generate_sequence(idx),
+                                              'sequence'   : generate_sequence(idx),
                                               'key_names'  : key_names,
                                               'data': msg
                                           }})
@@ -120,7 +120,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                           giveup=singer.utils.exception_is_4xx,
                           max_tries=8,
                           on_backoff=_log_backoff)
-    def send(self, data):
+    def post_to_gate(self, data):
         '''Send the given data to Stitch, retrying on exceptions'''
         ssl_verify = os.environ.get("TARGET_STITCH_SSL_VERIFY") != 'false'
         response = self.session.post(self.stitch_url,
@@ -244,7 +244,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                       "namespace" : "perftest",
                       "table_name" : table_name,
                       "action" : "switch_view",
-                      "sequence" : self.generate_sequence(1)}
+                      "sequence" : generate_sequence(1)}
             }
         data = transit_encode([pipeline_message])
 
@@ -306,7 +306,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
             with TIMINGS.mode('post_to_gate'):
                 LOGGER.debug('Request %d of %d is %d bytes', i + 1, len(bodies), len(body))
                 try:
-                    response = self.send(body)
+                    response = self.post_to_gate(body)
                     LOGGER.debug('Response is %s: %s', response, response.content)
 
                 # An HTTPError means we got an HTTP response but it was a

@@ -8,7 +8,7 @@ import pytz
 from decimal import Decimal
 
 import singer
-from target_stitch.handlers import stitch_handler
+from target_stitch.handlers import stitch_handler, common
 
 
 test_client_id = 1
@@ -70,7 +70,7 @@ class TestStitchHandler(unittest.TestCase):
         record_data = {"name": "test1-0"}
         record = mk_record("test1", record_data)
         messages = [singer.parse_message(record)]
-        with mock.patch.object(self.handler, 'send') as mock_post:
+        with mock.patch.object(self.handler, 'post_to_gate') as mock_post:
             self.handler.handle_batch(
                 messages,
                 1,
@@ -103,7 +103,8 @@ class TestStitchHandler(unittest.TestCase):
                     schema.schema,
                     schema.key_properties,
                     schema.bookmark_properties)
-        
+
+        # ensure we sent the activate version and messages separately
         self.assertEqual(2, len(mock_post.call_args_list))
 
         actual = mock_post.call_args_list[0][0][0]
@@ -156,7 +157,7 @@ class TestStitchHandler(unittest.TestCase):
         messages = [singer.parse_message(record), singer.parse_message(version)]
         key_name = "test-key"
 
-        with mock.patch.object(self.handler, 'send') as mock_post_gate:
+        with mock.patch.object(self.handler, 'post_to_gate') as mock_post_gate:
             with mock.patch.object(self.handler, 'post_to_spool') as mock_post_spool:
                 with mock.patch.object(self.handler, 'post_to_s3', return_value=[key_name, 1]) as mock_post_s3:
                     self.handler.handle_batch(
@@ -292,3 +293,37 @@ class TestStitchHandler(unittest.TestCase):
             "money": Decimal("10.42"),
         }
         self.assertDictEqual(expected, dict(actual["body"]["data"]))
+
+    def test_gate_partition_by_number_bytes(self):
+        schema_data = {"name": {"type": "string"}}
+        schema = singer.parse_message(mk_schema("test1", schema_data))
+        record_data = {"name": "test1-0"}
+        record = mk_record("test1", record_data, 1)
+        messages = [singer.parse_message(record), singer.parse_message(record)]
+
+        max_gate_bytes = common.MAX_NUM_GATE_BYTES
+        common.MAX_NUM_GATE_BYTES = 250
+        actual = common.serialize_gate_messages(
+            messages=messages,
+            schema=schema.schema,
+            key_names=schema.key_properties,
+            bookmark_names=None)
+        self.assertEqual(2, len(actual), actual)
+        common.MAX_NUM_GATE_BYTES = max_gate_bytes
+
+    def test_gate_partition_by_number_messages(self):
+        schema_data = {"name": {"type": "string"}}
+        schema = singer.parse_message(mk_schema("test1", schema_data))
+        record_data = {"name": "test1-0"}
+        record = mk_record("test1", record_data, 1)
+        messages = [singer.parse_message(record), singer.parse_message(record)]
+
+        max_gate_records = common.MAX_NUM_GATE_RECORDS
+        common.MAX_NUM_GATE_RECORDS = 1
+        actual = common.serialize_gate_messages(
+            messages=messages,
+            schema=schema.schema,
+            key_names=schema.key_properties,
+            bookmark_names=None)
+        self.assertEqual(2, len(actual), actual)
+        common.MAX_NUM_GATE_RECORDS = max_gate_records

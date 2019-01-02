@@ -94,7 +94,6 @@ def serialize_gate_messages(messages, schema, key_names, bookmark_names):
     JSON. If the result exceeds the request size limit, splits the batch
     in half and recurs.
     '''
-
     serialized_messages = []
     for idx, message in enumerate(messages):
         if isinstance(message, singer.RecordMessage):
@@ -133,11 +132,14 @@ def serialize_gate_messages(messages, schema, key_names, bookmark_names):
     # conversion as is for now.
 
     serialized = json.dumps(body)
-    LOGGER.debug('Serialized %d messages into %d bytes', len(messages), len(serialized))
+    LOGGER.info('Serialized %d messages into %d bytes', len(messages), len(serialized))
 
-    if len(serialized) < MAX_NUM_GATE_BYTES:
+    #TODO: split batch based on number of records as well
+    # Happy path
+    if len(serialized) <= MAX_NUM_GATE_BYTES and len(messages) <= MAX_NUM_GATE_RECORDS:
         return [serialized]
 
+    # Sad path
     if len(messages) <= 1:
         raise BatchTooLargeException(
             "A single record is larger than the Stitch API limit of {} Mb".format(
