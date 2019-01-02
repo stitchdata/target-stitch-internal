@@ -34,4 +34,4 @@ where `tap-some-api` is [Singer Tap](https://singer.io).
 
 ---
 
-Copyright &copy; 2017 Stitch
+Copyright &copy; 2019 Stitch
