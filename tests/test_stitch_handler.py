@@ -9,7 +9,7 @@ from decimal import Decimal
 
 import singer
 from target_stitch.handlers import stitch_handler, common
-
+from target_stitch.exceptions import BatchTooLargeException
 
 test_client_id = 1
 test_namespace = "test"
@@ -327,3 +327,26 @@ class TestStitchHandler(unittest.TestCase):
             bookmark_names=None)
         self.assertEqual(2, len(actual), actual)
         common.MAX_NUM_GATE_RECORDS = max_gate_records
+
+
+    def test_gate_partition_failure(self):
+        schema_data = {"name": {"type": "string"}}
+        schema = singer.parse_message(mk_schema("test1", schema_data))
+        record_data = {"name": "test1-0"}
+        record = mk_record("test1", record_data, 1)
+        messages = [singer.parse_message(record), singer.parse_message(record)]
+
+        max_gate_records = common.MAX_NUM_GATE_RECORDS
+        common.MAX_NUM_GATE_RECORDS = 1
+        max_gate_bytes = common.MAX_NUM_GATE_BYTES
+        common.MAX_NUM_GATE_BYTES = 1
+
+        with self.assertRaises(BatchTooLargeException):
+            actual = common.serialize_gate_messages(
+                messages=messages,
+                schema=schema.schema,
+                key_names=schema.key_properties,
+                bookmark_names=None)
+
+        common.MAX_NUM_GATE_RECORDS = max_gate_records
+        common.MAX_NUM_GATE_BYTES = max_gate_bytes
