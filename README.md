@@ -1,6 +1,6 @@
 # target-stitch
 
-Reads [Singer](https://singer.io) formatted data from stdin and persists it to the Stitch Import API.
+for internal use only
 
 ## Install
 
