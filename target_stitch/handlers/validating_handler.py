@@ -12,6 +12,7 @@ class ValidatingHandler: # pylint: disable=too-few-public-methods
         '''Handles messages by validating them against schema.'''
         schema = ensure_multipleof_is_decimal(schema)
         validator = Draft4Validator(schema, format_checker=FormatChecker())
+
         for i, message in enumerate(messages):
             if isinstance(message, singer.RecordMessage):
                 data = marshall_decimals(schema, message.record)
