@@ -208,7 +208,6 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         else:
             bookmark_metadata = None
 
-        # TODO: add _sdc fields to records?
         pipeline_messages = self.serialize_s3_upsert_messages(records_with_decimals, schema, table_name, key_names)
 
         data = transit_encode(pipeline_messages)

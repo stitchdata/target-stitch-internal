@@ -134,7 +134,6 @@ def serialize_gate_messages(messages, schema, key_names, bookmark_names):
     serialized = json.dumps(body)
     LOGGER.info('Serialized %d messages into %d bytes', len(messages), len(serialized))
 
-    #TODO: split batch based on number of records as well
     # Happy path
     if len(serialized) <= MAX_NUM_GATE_BYTES and len(messages) <= MAX_NUM_GATE_RECORDS:
         return [serialized]
