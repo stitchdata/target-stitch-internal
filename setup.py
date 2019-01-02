@@ -26,7 +26,7 @@ setup(name='target-stitch',
       },
       entry_points='''
           [console_scripts]
-          target-stitch=target_stitch:main
+          target-stitch-internal=target_stitch:main
       ''',
       packages=['target_stitch'],
 )
