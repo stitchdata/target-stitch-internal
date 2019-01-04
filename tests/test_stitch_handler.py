@@ -14,11 +14,11 @@ from target_stitch.exceptions import BatchTooLargeException
 test_client_id = 1
 test_namespace = "test"
 
-def mk_schema(stream, schema):
+def mk_schema(stream, schema, key_properties=["name"]):
     return json.dumps({
         "type": "SCHEMA",
         "stream": stream,
-        "key_properties": ["name"],
+        "key_properties": key_properties,
         "schema": {
             "type": "object",
             "properties": schema,
@@ -262,6 +262,42 @@ class TestStitchHandler(unittest.TestCase):
             "date": datetime.datetime(2018, 1, 1, tzinfo=pytz.UTC),
         }
         self.assertDictEqual(expected, dict(actual["body"]["data"]))
+        self.assertEqual(['name'], list(actual['body']['key_names']))
+
+    def test_synthetic_pks(self):
+        schema_data = {
+            "name": {"type": "string"},
+            "money": {"type": "number", "multipleOf": 0.01},
+        }
+        schema = singer.parse_message(mk_schema("test1", schema_data, None))
+        record_data = {
+            "name": "test1-0",
+            "money": 10.42,
+        }
+        record = mk_record("test1", record_data, 1)
+        version = mk_version("test1", 1)
+        messages = [singer.parse_message(record), singer.parse_message(version)]
+        key_name = "test-key"
+
+        with mock.patch.object(self.handler, 'post_to_spool') as mock_post:
+            with mock.patch.object(self.handler, 'post_to_s3', return_value=[key_name, 1]) as mock_post_s3:
+                self.handler.handle_batch(
+                    messages,
+                    stitch_handler.S3_THRESHOLD_BYTES + 1,
+                    schema.schema,
+                    schema.key_properties,
+                    schema.bookmark_properties)
+
+        actual = decode_transit(mock_post_s3.call_args_list[0][0][0])
+        # import pdb
+        # pdb.set_trace()
+        expected = {
+            "name": "test1-0",
+            "money": Decimal("10.42"),
+        }
+        self.assertDictContainsSubset(expected, dict(actual["body"]["data"]))
+        self.assertEqual([stitch_handler.SYNTHETIC_PK], list(actual['body']['key_names']))
+        self.assertIsNotNone( actual['body']['data'][stitch_handler.SYNTHETIC_PK])
 
     def test_decimals(self):
         schema_data = {

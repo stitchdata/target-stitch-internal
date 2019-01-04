@@ -28,7 +28,7 @@ STITCH_SPOOL_URL = "{}/spool/private/v1/clients/{}/batches"
 
 #experiments have shown that payloads over 1MB are more efficiently transfered via S3
 S3_THRESHOLD_BYTES=(1 * 1024 * 1024)
-
+SYNTHETIC_PK='__sdc_primary_key'
 TIMINGS = Timings()
 
 def now():
@@ -147,9 +147,6 @@ class StitchHandler: # pylint: disable=too-few-public-methods
 
     def handle_batch(self, messages, buffer_size_bytes, schema, key_names, bookmark_names=None):
         table_name = messages[0].stream
-        # self.handle_s3(messages, schema, key_names, bookmark_names=None)
-        # self.handle_gate(messages, schema, key_names, bookmark_names=None)
-
         if table_name not in self.send_methods:
             if ((buffer_size_bytes >= S3_THRESHOLD_BYTES) or (len(messages) > MAX_NUM_GATE_RECORDS)):
                 self.send_methods[table_name] = 's3'
@@ -187,12 +184,17 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                         for key in key_names:
                             if key not in msg:
                                 raise ValueError("Record({}) is missing key property {}.".format(msg, key))
+                    else:
+                        msg[SYNTHETIC_PK] = uuid.uuid4()
+
                 except ValidationError as exc:
                     raise ValueError('Record({}) does not conform to schema. Please see logs for details.'
                                      .format(msg)) from exc
                 except (SchemaError, UnknownType) as exc:
                     raise ValueError('Schema({}) is invalid. Please see logs for details.'
                                      .format(schema)) from exc
+            if not key_names:
+                key_names = [SYNTHETIC_PK]
 
         if bookmark_names:
             # We only support one bookmark key

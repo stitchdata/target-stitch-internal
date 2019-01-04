@@ -17,6 +17,7 @@ MAX_NUM_GATE_RECORDS=20000
 #the gate will NOT accept POST which contain more than 4MB
 MAX_NUM_GATE_BYTES=(4 * 1024 * 1024)
 
+
 def ensure_multipleof_is_decimal(schema):
     '''Ensure multipleOf (if exists) points to a Decimal.
 
