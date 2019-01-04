@@ -143,6 +143,7 @@ class TestStitchHandler(unittest.TestCase):
             "action": "upsert",
             "client_id": test_client_id,
         }
+        record_data[stitch_handler.TABLE_VERSION] = 1
         self.assertDictContainsSubset(expected, dict(actual["body"]))
         self.assertIn("sequence", actual["body"])
         self.assertIn("key_names", actual["body"])
@@ -260,6 +261,7 @@ class TestStitchHandler(unittest.TestCase):
         expected = {
             "name": "test1-0",
             "date": datetime.datetime(2018, 1, 1, tzinfo=pytz.UTC),
+            stitch_handler.TABLE_VERSION: 1,
         }
         self.assertDictEqual(expected, dict(actual["body"]["data"]))
         self.assertEqual(['name'], list(actual['body']['key_names']))
@@ -361,6 +363,7 @@ class TestStitchHandler(unittest.TestCase):
         expected = {
             "name": "test1-0",
             "money": Decimal("10.42"),
+            stitch_handler.TABLE_VERSION: 1,
         }
         self.assertDictEqual(expected, dict(actual["body"]["data"]))
 

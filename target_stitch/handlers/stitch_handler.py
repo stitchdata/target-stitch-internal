@@ -31,6 +31,7 @@ STITCH_SPOOL_URL = "{}/spool/private/v1/clients/{}/batches"
 S3_THRESHOLD_BYTES=(1 * 1024 * 1024)
 SYNTHETIC_PK='__sdc_primary_key'
 TIME_EXTRACTED='_sdc_extracted_at'
+TABLE_VERSION='_sdc_table_version'
 TIMINGS = Timings()
 
 def now():
@@ -189,6 +190,9 @@ class StitchHandler: # pylint: disable=too-few-public-methods
 
                     if msg.time_extracted:
                         record[TIME_EXTRACTED] = msg.time_extracted.replace(tzinfo=pytz.UTC)
+
+                    if table_version:
+                        record[TABLE_VERSION] = table_version
 
                 except ValidationError as exc:
                     raise ValueError('Record({}) does not conform to schema. Please see logs for details.'
