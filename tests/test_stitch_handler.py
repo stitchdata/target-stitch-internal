@@ -299,6 +299,40 @@ class TestStitchHandler(unittest.TestCase):
         self.assertEqual([stitch_handler.SYNTHETIC_PK], list(actual['body']['key_names']))
         self.assertIsNotNone( actual['body']['data'][stitch_handler.SYNTHETIC_PK])
 
+    def test_time_extracted(self):
+        schema_data = {
+            "name": {"type": "string"},
+            "money": {"type": "number", "multipleOf": 0.01},
+        }
+        schema = singer.parse_message(mk_schema("test1", schema_data))
+        record_data = {
+            "name": "test1-0",
+            "money": 10.42,
+        }
+        record = mk_record("test1", record_data, 1)
+        version = mk_version("test1", 1)
+        messages = [singer.parse_message(record), singer.parse_message(version)]
+        # set time extracted on the record message so it gets added
+        messages[0].time_extracted = datetime.datetime.utcnow()
+        key_name = "test-key"
+
+        with mock.patch.object(self.handler, 'post_to_spool') as mock_post:
+            with mock.patch.object(self.handler, 'post_to_s3', return_value=[key_name, 1]) as mock_post_s3:
+                self.handler.handle_batch(
+                    messages,
+                    stitch_handler.S3_THRESHOLD_BYTES + 1,
+                    schema.schema,
+                    schema.key_properties,
+                    schema.bookmark_properties)
+
+        actual = decode_transit(mock_post_s3.call_args_list[0][0][0])
+        expected = {
+            "name": "test1-0",
+            "money": Decimal("10.42"),
+        }
+        self.assertDictContainsSubset(expected, dict(actual["body"]["data"]))
+        self.assertIsNotNone(actual["body"]["data"].get(stitch_handler.TIME_EXTRACTED))
+
     def test_decimals(self):
         schema_data = {
             "name": {"type": "string"},
@@ -363,7 +397,6 @@ class TestStitchHandler(unittest.TestCase):
             bookmark_names=None)
         self.assertEqual(2, len(actual), actual)
         common.MAX_NUM_GATE_RECORDS = max_gate_records
-
 
     def test_gate_partition_failure(self):
         schema_data = {"name": {"type": "string"}}

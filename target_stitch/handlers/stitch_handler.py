@@ -8,6 +8,7 @@ import json
 import io
 import os
 import sys
+import pytz
 
 import uuid
 import hashlib
@@ -29,6 +30,7 @@ STITCH_SPOOL_URL = "{}/spool/private/v1/clients/{}/batches"
 #experiments have shown that payloads over 1MB are more efficiently transfered via S3
 S3_THRESHOLD_BYTES=(1 * 1024 * 1024)
 SYNTHETIC_PK='__sdc_primary_key'
+TIME_EXTRACTED='_sdc_extracted_at'
 TIMINGS = Timings()
 
 def now():
@@ -171,35 +173,38 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         #try putting bullshit schema
         validator = Draft4Validator(schema, format_checker=FormatChecker())
 
-        #NB> Decimal marshalling must occur BEFORE schema validation
-        with TIMINGS.mode('marshall_decimals'):
-            records_with_decimals = [marshall_decimals(schema, m.record) for m in messages]
-
         LOGGER.info("validating records")
+        records = []
         with TIMINGS.mode('validate_records'):
-            for msg in records_with_decimals:
+            for msg in messages:
+                record = marshall_decimals(schema, msg.record)
                 try:
-                    validator.validate(msg)
+                    validator.validate(record)
                     if key_names:
                         for key in key_names:
-                            if key not in msg:
-                                raise ValueError("Record({}) is missing key property {}.".format(msg, key))
+                            if key not in record:
+                                raise ValueError("Record({}) is missing key property {}.".format(record, key))
                     else:
-                        msg[SYNTHETIC_PK] = uuid.uuid4()
+                        record[SYNTHETIC_PK] = uuid.uuid4()
+
+                    if msg.time_extracted:
+                        record[TIME_EXTRACTED] = msg.time_extracted.replace(tzinfo=pytz.UTC)
 
                 except ValidationError as exc:
                     raise ValueError('Record({}) does not conform to schema. Please see logs for details.'
-                                     .format(msg)) from exc
+                                     .format(record)) from exc
                 except (SchemaError, UnknownType) as exc:
                     raise ValueError('Schema({}) is invalid. Please see logs for details.'
                                      .format(schema)) from exc
+
+                records.append(record)
             if not key_names:
                 key_names = [SYNTHETIC_PK]
 
         if bookmark_names:
             # We only support one bookmark key
             bookmark_key = bookmark_names[0]
-            bookmarks = [r[bookmark_key] for r in records_with_decimals]
+            bookmarks = [r[bookmark_key] for r in records]
             bookmark_min = min(bookmarks)
             bookmark_max = max(bookmarks)
             bookmark_metadata = [{
@@ -210,7 +215,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         else:
             bookmark_metadata = None
 
-        pipeline_messages = self.serialize_s3_upsert_messages(records_with_decimals, schema, table_name, key_names)
+        pipeline_messages = self.serialize_s3_upsert_messages(records, schema, table_name, key_names)
 
         data = transit_encode(pipeline_messages)
         key_name, persist_time = self.post_to_s3(data, num_records, table_name)
