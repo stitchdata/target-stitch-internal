@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='target-stitch',
       version='1.8.1',
@@ -28,5 +28,5 @@ setup(name='target-stitch',
           [console_scripts]
           target-stitch-internal=target_stitch:main
       ''',
-      packages=['target_stitch'],
+      packages=find_packages()
 )
