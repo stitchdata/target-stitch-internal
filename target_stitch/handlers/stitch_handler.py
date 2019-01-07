@@ -31,7 +31,6 @@ STITCH_SPOOL_URL = "{}/spool/private/v1/clients/{}/batches"
 S3_THRESHOLD_BYTES=(1 * 1024 * 1024)
 SYNTHETIC_PK='__sdc_primary_key'
 TIME_EXTRACTED='_sdc_extracted_at'
-TABLE_VERSION='_sdc_table_version'
 TIMINGS = Timings()
 
 def now():
@@ -83,7 +82,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
 
         return (key_name, persist_time)
 
-    def serialize_s3_upsert_messages(self, records, schema, table_name, key_names ):
+    def serialize_s3_upsert_messages(self, records, schema, table_name, key_names, table_version ):
         pipeline_messages = []
         for idx, msg in enumerate(records):
             with TIMINGS.mode('marshall_date_times'):
@@ -98,6 +97,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                                               'action'     : 'upsert',
                                               'sequence'   : generate_sequence(idx),
                                               'key_names'  : key_names,
+                                              'table_version'  : table_version,
                                               'data': msg
                                           }})
         return pipeline_messages
@@ -168,7 +168,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         LOGGER.info("handling batch of %s upserts for table %s to s3", len(messages), messages[0].stream)
         table_name = messages[0].stream
 
-        table_version = determine_table_version(messages[0])
+
         num_records = len(messages)
 
         schema = ensure_multipleof_is_decimal(schema)
@@ -191,9 +191,6 @@ class StitchHandler: # pylint: disable=too-few-public-methods
 
                     if msg.time_extracted:
                         record[TIME_EXTRACTED] = msg.time_extracted.replace(tzinfo=pytz.UTC)
-
-                    if table_version:
-                        record[TABLE_VERSION] = table_version
 
                 except ValidationError as exc:
                     raise ValueError('Record({}) does not conform to schema. Please see logs for details.'
@@ -220,8 +217,8 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         else:
             bookmark_metadata = None
 
-        pipeline_messages = self.serialize_s3_upsert_messages(records, schema, table_name, key_names)
-
+        table_version = determine_table_version(messages[0])
+        pipeline_messages = self.serialize_s3_upsert_messages(records, schema, table_name, key_names, table_version)
         data = transit_encode(pipeline_messages)
         key_name, persist_time = self.post_to_s3(data, num_records, table_name)
 
