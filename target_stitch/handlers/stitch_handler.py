@@ -145,6 +145,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                                      headers=self.headers(),
                                      json=body,
                                      verify=ssl_verify)
+        LOGGER.info("SPOOL RESPONSE %s: %s", response.status_code, response.content)
         response.raise_for_status()
         return response
 
@@ -186,7 +187,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                             if key not in record:
                                 raise ValueError("Record({}) is missing key property {}.".format(record, key))
                     else:
-                        record[SYNTHETIC_PK] = uuid.uuid4()
+                        record[SYNTHETIC_PK] = str(uuid.uuid4())
 
                     if msg.time_extracted:
                         record[TIME_EXTRACTED] = msg.time_extracted.replace(tzinfo=pytz.UTC)
