@@ -131,7 +131,6 @@ def serialize_gate_messages(messages, schema, key_names, bookmark_names):
     # as it is implemented currently is also subject to rounding errors.
     # This will affect very few data points and we have chosen to leave
     # conversion as is for now.
-
     serialized = json.dumps(body)
     LOGGER.info('Serialized %d messages into %d bytes', len(messages), len(serialized))
 
