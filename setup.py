@@ -13,8 +13,10 @@ setup(name='target-stitch',
           'jsonschema==2.6.0',
           'mock==2.0.0',
           'requests==2.20.0',
-          'singer-python==5.0.15',
+          'singer-python==5.4.0',
           'psutil==5.3.1',
+	  'boto==2.49.0',
+	  'transit-python==0.8.302',
       ],
       extras_require={
           'dev': [
@@ -24,7 +26,7 @@ setup(name='target-stitch',
       },
       entry_points='''
           [console_scripts]
-          target-stitch=target_stitch:main
+          target-stitch-internal=target_stitch:main
       ''',
       packages=['target_stitch'],
 )

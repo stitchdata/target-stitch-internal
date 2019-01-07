@@ -1,6 +1,6 @@
 # target-stitch
 
-Reads [Singer](https://singer.io) formatted data from stdin and persists it to the Stitch Import API.
+for internal use only
 
 ## Install
 
@@ -34,4 +34,4 @@ where `tap-some-api` is [Singer Tap](https://singer.io).
 
 ---
 
-Copyright &copy; 2017 Stitch
+Copyright &copy; 2019 Stitch
