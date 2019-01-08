@@ -28,7 +28,7 @@ getcontext().prec = 40 * 2
 
 DEFAULT_STITCH_URL = 'https://api.stitchdata.com/v2/import/batch'
 
-MAX_BYTES_PER_FLUSH = 20 * 1024 * 1024
+MAX_BYTES_PER_FLUSH = 50 * 1024 * 1024
 MAX_BYTES_PER_RECORD = MAX_BYTES_PER_FLUSH
 
 # Cannot be higher than 1000000 due to sequence numbers exceeding max long value
