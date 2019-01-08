@@ -65,7 +65,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         self.session = requests.Session()
         self.s3_conn = boto.connect_s3()
         self.bucket_name = spool_s3_bucket
-        self.bucket = self.s3_conn.get_bucket(self.bucket_name)
+        self.bucket = self.s3_conn.get_bucket(self.bucket_name, validate=False)
         self.send_methods = {}
 
     def post_to_s3(self, data, num_records, table_name):
