@@ -31,8 +31,8 @@ DEFAULT_STITCH_URL = 'https://api.stitchdata.com/v2/import/batch'
 MAX_BYTES_PER_FLUSH = 20 * 1024 * 1024
 MAX_BYTES_PER_RECORD = MAX_BYTES_PER_FLUSH
 
-# Cannot be higher than 99999 due to sequence numbers exceeding max long value
-MAX_RECORDS_PER_FLUSH = 20000
+# Cannot be higher than 1000000 due to sequence numbers exceeding max long value
+MAX_RECORDS_PER_FLUSH = 1000000
 
 LOGGER = singer.get_logger().getChild('target_stitch')
 
