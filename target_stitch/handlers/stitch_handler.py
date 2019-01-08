@@ -140,11 +140,10 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                           on_backoff=_log_backoff)
     def post_to_spool(self, body):
         '''Send the given data to the spool, retrying on exceptions'''
-        ssl_verify = os.environ.get("TARGET_STITCH_SSL_VERIFY") != 'false'
         response = self.session.post(STITCH_SPOOL_URL.format(self.spool_host, self.client_id),
                                      headers=self.headers(),
                                      json=body,
-                                     verify=ssl_verify)
+                                     verify=False)
         LOGGER.info("SPOOL RESPONSE %s: %s", response.status_code, response.content)
         response.raise_for_status()
         return response
