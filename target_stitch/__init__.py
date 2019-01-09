@@ -15,6 +15,7 @@ import requests
 import singer
 import sys
 import time
+from target_stitch.timings import TIMINGS
 
 from collections import namedtuple
 from threading import Thread
@@ -182,10 +183,12 @@ class TargetStitch:
 
     def consume(self, reader):
         '''Consume all the lines from the queue, flushing when done.'''
-        for line in reader:
-            self.handle_line(line)
-        self.flush()
+        with TIMINGS.mode('consume_from_tap'):
+            for line in reader:
+                self.handle_line(line)
+            self.flush()
 
+        TIMINGS.log_timings()
 
 def main_impl():
     '''We wrap this function in main() to add exception handling'''

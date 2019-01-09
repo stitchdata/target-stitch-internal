@@ -7,7 +7,7 @@ LOGGER = singer.get_logger().getChild('target_stitch')
 class Timings:
     '''Gathers timing information for the three main steps of the Tap.'''
     def __init__(self):
-        self.last_time = time.time()
+        #self.last_time = time.time()
         self.reset_timings()
 
     @contextmanager
@@ -20,13 +20,16 @@ class Timings:
         start = time.time()
         yield
         end = time.time()
-        self.timings["unspecified"] += start - self.last_time
+        #self.timings["unspecified"] += start - self.last_time
         self.timings[mode] += end - start
-        self.last_time = end
+        #self.last_time = end
 
     def reset_timings(self):
-        self.timings = {"unspecified": 0.0}
+        #self.timings = {"unspecified": 0.0}
+        self.timings = {}
 
     def log_timings(self):
         '''We call this with every flush to print out the accumulated timings'''
         LOGGER.info('Timings: %s', "; ".join("{}: {:0.3f}".format(k, v) for k, v in self.timings.items()))
+
+TIMINGS = Timings()

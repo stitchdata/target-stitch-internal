@@ -16,7 +16,7 @@ import hashlib
 from transit.writer import Writer
 from decimal import Decimal
 from requests.exceptions import RequestException, HTTPError
-from target_stitch.timings import Timings
+from target_stitch.timings import TIMINGS
 from target_stitch.exceptions import TargetStitchException
 from jsonschema import SchemaError, ValidationError, Draft4Validator, FormatChecker
 from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, marshall_date_times, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version, generate_sequence
@@ -31,7 +31,6 @@ STITCH_SPOOL_URL = "{}/spool/private/v1/clients/{}/batches"
 S3_THRESHOLD_BYTES=(1 * 1024 * 1024)
 SYNTHETIC_PK='__sdc_primary_key'
 TIME_EXTRACTED='_sdc_extracted_at'
-TIMINGS = Timings()
 
 def now():
     return singer.utils.strftime(singer.utils.now())
@@ -87,6 +86,8 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         for idx, msg in enumerate(records):
             with TIMINGS.mode('marshall_date_times'):
                 marshalled_msg = marshall_date_times(schema, msg)
+
+            with TIMINGS.mode('build_pipeline_messages'):
                 pipeline_messages.append({'message_version' : MESSAGE_VERSION,
                                           'pipeline_version' : PIPELINE_VERSION,
                                           "timestamps" : {"_rjm_received_at" :  int(time.time() * 1000)},
@@ -149,17 +150,18 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         return response
 
     def handle_batch(self, messages, buffer_size_bytes, schema, key_names, bookmark_names=None):
-        table_name = messages[0].stream
-        if table_name not in self.send_methods:
-            if ((buffer_size_bytes >= S3_THRESHOLD_BYTES) or (len(messages) > MAX_NUM_GATE_RECORDS)):
-                self.send_methods[table_name] = 's3'
-            else:
-                self.send_methods[table_name] = 'gate'
+        with TIMINGS.mode('handle_batch'):
+            table_name = messages[0].stream
+            if table_name not in self.send_methods:
+                if ((buffer_size_bytes >= S3_THRESHOLD_BYTES) or (len(messages) > MAX_NUM_GATE_RECORDS)):
+                    self.send_methods[table_name] = 's3'
+                else:
+                    self.send_methods[table_name] = 'gate'
 
-        if (self.send_methods.get(table_name) == 's3'):
-            self.handle_s3(messages, schema, key_names, bookmark_names=None)
-        else:
-            self.handle_gate(messages, schema, key_names, bookmark_names=None)
+            if (self.send_methods.get(table_name) == 's3'):
+                self.handle_s3(messages, schema, key_names, bookmark_names=None)
+            else:
+                self.handle_gate(messages, schema, key_names, bookmark_names=None)
 
         TIMINGS.log_timings()
 
@@ -167,12 +169,13 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         LOGGER.info("handling batch of %s upserts for table %s to s3", len(messages), messages[0].stream)
         table_name = messages[0].stream
 
-
         num_records = len(messages)
 
-        schema = ensure_multipleof_is_decimal(schema)
-        #try putting bullshit schema
-        validator = Draft4Validator(schema, format_checker=FormatChecker())
+        with TIMINGS.mode('ensure_multipleof_is_decimal'):
+            schema = ensure_multipleof_is_decimal(schema)
+
+        with TIMINGS.mode('make_validator'):
+            validator = Draft4Validator(schema, format_checker=FormatChecker())
 
         LOGGER.info("validating records")
         records = []
@@ -202,19 +205,20 @@ class StitchHandler: # pylint: disable=too-few-public-methods
             if not key_names:
                 key_names = [SYNTHETIC_PK]
 
-        if bookmark_names:
-            # We only support one bookmark key
-            bookmark_key = bookmark_names[0]
-            bookmarks = [r[bookmark_key] for r in records]
-            bookmark_min = min(bookmarks)
-            bookmark_max = max(bookmarks)
-            bookmark_metadata = [{
-                "key": bookmark_key,
-                "min_value": bookmark_min,
-                "max_value": bookmark_max,
-            }]
-        else:
-            bookmark_metadata = None
+        with TIMINGS.mode('bookmark_data'):
+            if bookmark_names:
+                # We only support one bookmark key
+                bookmark_key = bookmark_names[0]
+                bookmarks = [r[bookmark_key] for r in records]
+                bookmark_min = min(bookmarks)
+                bookmark_max = max(bookmarks)
+                bookmark_metadata = [{
+                    "key": bookmark_key,
+                    "min_value": bookmark_min,
+                    "max_value": bookmark_max,
+                }]
+            else:
+                bookmark_metadata = None
 
         table_version = determine_table_version(messages[0])
         pipeline_messages = self.serialize_s3_upsert_messages(records, schema, table_name, key_names, table_version)
@@ -278,15 +282,14 @@ class StitchHandler: # pylint: disable=too-few-public-methods
     def handle_s3(self, messages, schema, key_names, bookmark_names=None):
         activate_versions = []
         upserts = []
-
-        for msg in messages:
-            if isinstance(msg, singer.ActivateVersionMessage):
-                activate_versions.append(msg)
-            elif isinstance(msg, singer.RecordMessage):
-                upserts.append(msg)
-            else:
-                raise Exception('unrecognized message type')
-
+        with TIMINGS.mode('message_classifiation'):
+            for msg in messages:
+                if isinstance(msg, singer.ActivateVersionMessage):
+                    activate_versions.append(msg)
+                elif isinstance(msg, singer.RecordMessage):
+                    upserts.append(msg)
+                else:
+                    raise Exception('unrecognized message type')
         if upserts:
             self.handle_s3_upserts(upserts, schema, key_names, bookmark_names)
         if activate_versions:
