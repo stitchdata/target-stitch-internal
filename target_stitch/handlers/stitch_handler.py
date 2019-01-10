@@ -41,15 +41,24 @@ def _log_backoff(details):
         'Error sending data to Stitch. Sleeping %d seconds before trying again: %s',
         details['wait'], exc)
 
+def encode_message(m):
+    with io.BytesIO() as buf:
+        writer = Writer(buf, "msgpack")
+        writer.write(m)
+        return buf.getvalue()
+
+
 def transit_encode(pipeline_messages):
     LOGGER.info("transit encoding records")
+    import multiprocessing
+    pool = multiprocessing.Pool()
+
+    LOGGER.info("transit encoding using %s cpus", os.cpu_count())
     with TIMINGS.mode('transit_encode'):
-        with io.BytesIO() as buf:
-            writer = Writer(buf, "msgpack")
-            for m in pipeline_messages:
-                writer.write(m)
-            data = buf.getvalue()
-    return data
+        return b"".join(pool.map(encode_message, pipeline_messages))
+            # for m in pipeline_messages:
+            #     writer.write(m)
+    # return data
 
 
 class StitchHandler: # pylint: disable=too-few-public-methods
@@ -88,19 +97,21 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                 marshalled_msg = marshall_date_times(schema, msg)
 
             with TIMINGS.mode('build_pipeline_messages'):
-                pipeline_messages.append({'message_version' : MESSAGE_VERSION,
-                                          'pipeline_version' : PIPELINE_VERSION,
-                                          "timestamps" : {"_rjm_received_at" :  int(time.time() * 1000)},
-                                          'body' : {
-                                              'client_id' : int(self.client_id),
-                                              'namespace' : self.connection_ns,
-                                              'table_name' : table_name,
-                                              'action'     : 'upsert',
-                                              'sequence'   : generate_sequence(idx),
-                                              'key_names'  : key_names,
-                                              'table_version'  : table_version,
-                                              'data': msg
-                                          }})
+                pipeline_message = {'message_version' : MESSAGE_VERSION,
+                                    'pipeline_version' : PIPELINE_VERSION,
+                                    "timestamps" : {"_rjm_received_at" :  int(time.time() * 1000)},
+                                    'body' : {
+                                        'client_id' : int(self.client_id),
+                                        'namespace' : self.connection_ns,
+                                        'table_name' : table_name,
+                                        'action'     : 'upsert',
+                                        'sequence'   : generate_sequence(idx),
+                                        'key_names'  : key_names,
+                                        'data': msg
+                                    }}
+                if table_version is not None:
+                    pipeline_message['body']['table_version'] = table_version
+                pipeline_messages.append(pipeline_message)
         return pipeline_messages
 
 
