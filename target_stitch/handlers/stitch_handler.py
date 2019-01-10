@@ -21,6 +21,7 @@ from target_stitch.exceptions import TargetStitchException
 from jsonschema import SchemaError, ValidationError, Draft4Validator, FormatChecker
 from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, marshall_date_times, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version, generate_sequence
 from jsonschema.exceptions import UnknownType
+import multiprocessing
 
 LOGGER = singer.get_logger().getChild('target_stitch')
 MESSAGE_VERSION=2
@@ -50,7 +51,7 @@ def encode_message(m):
 
 def transit_encode(pipeline_messages):
     LOGGER.info("transit encoding records")
-    import multiprocessing
+
     pool = multiprocessing.Pool()
 
     LOGGER.info("transit encoding using %s cpus", os.cpu_count())
