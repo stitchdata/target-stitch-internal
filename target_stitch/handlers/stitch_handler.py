@@ -58,7 +58,7 @@ def transit_encode(pipeline_messages):
 
     LOGGER.info("transit encoding using %s cpus", os.cpu_count())
     with TIMINGS.mode('transit_encode'):
-        return b"".join(pool.map(encode_message, pipeline_messages))
+        return b"".join(pool.map_async(encode_message, pipeline_messages).get())
             # for m in pipeline_messages:
             #     writer.write(m)
     # return data
