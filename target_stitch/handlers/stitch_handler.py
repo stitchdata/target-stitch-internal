@@ -59,6 +59,8 @@ def transit_encode(pipeline_messages):
             # for m in pipeline_messages:
             #     writer.write(m)
     # return data
+    pool.close()
+    pool.join()
 
 
 class StitchHandler: # pylint: disable=too-few-public-methods
