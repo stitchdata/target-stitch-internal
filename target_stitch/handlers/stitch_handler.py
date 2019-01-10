@@ -44,8 +44,10 @@ def _log_backoff(details):
 
 def encode_message(m):
     with io.BytesIO() as buf:
+        LOGGER.info('in encode_message within pool!')
         writer = Writer(buf, "msgpack")
         writer.write(m)
+        LOGGER.info('in encode_message within pool: about to return')
         return buf.getvalue()
 
 
