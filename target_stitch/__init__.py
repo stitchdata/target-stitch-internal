@@ -184,11 +184,9 @@ class TargetStitch:
     def consume(self, reader):
         '''Consume all the lines from the queue, flushing when done.'''
         with TIMINGS.mode('consume_from_tap'):
-            LOGGER.info('target is ACTUALLY DOING NOTHING')
             for line in reader:
-                pass
-                #with TIMINGS.mode('handle_line'):
-                #    self.handle_line(line)
+                with TIMINGS.mode('handle_line'):
+                   self.handle_line(line)
 
         self.flush()
         TIMINGS.log_timings()
