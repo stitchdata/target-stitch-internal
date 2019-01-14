@@ -39,7 +39,11 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 def json_dump(d):
-    return json.dumps(d, cls=DecimalEncoder).encode('utf-8')
+    try:
+        return json.dumps(d, cls=DecimalEncoder).encode('utf-8')
+    except Exception as ex:
+        LOGGER.info("could not json dump: %s", d)
+        raise ex
 
 def now():
     return singer.utils.strftime(singer.utils.now())
