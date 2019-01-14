@@ -262,7 +262,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                       "action" : "switch_view",
                       "sequence" : generate_sequence(1)}
             }
-        data = transit_encode([pipeline_message])
+        data = json_dump(pipeline_message)
 
         key_name, persist_time = self.post_to_s3(data, 1, table_name)
 
@@ -278,8 +278,8 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                 "s3_bucket": self.bucket_name,
                 "num_records": 1,
                 "num_bytes": len(data),
-                "format": "transit+msgpack",
-                "format_version": "0.8.281",
+                "format": "json+schema",
+                "format_version": "1.0.0",
                 "persist_duration_millis": persist_time,
             }
             self.post_to_spool(body)
