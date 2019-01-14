@@ -19,7 +19,7 @@ from requests.exceptions import RequestException, HTTPError
 from target_stitch.timings import TIMINGS
 from target_stitch.exceptions import TargetStitchException
 from jsonschema import SchemaError, ValidationError, Draft4Validator, FormatChecker
-from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, marshall_date_times, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version, generate_sequence
+from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version, generate_sequence
 from jsonschema.exceptions import UnknownType
 
 LOGGER = singer.get_logger().getChild('target_stitch')

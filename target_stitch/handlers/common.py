@@ -60,12 +60,6 @@ def marshall_data(schema, data, schema_predicate, data_marshaller):
 
     return data
 
-def marshall_date_times(schema, data):
-    return marshall_data(
-        schema, data,
-        lambda s, d: "format" in s and s["format"] == 'date-time' and isinstance(d, str),
-        lambda d: strptime(d))
-
 def marshall_decimals(schema, data):
     return marshall_data(
         schema, data,
