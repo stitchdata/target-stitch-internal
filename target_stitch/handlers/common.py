@@ -142,25 +142,3 @@ def serialize_gate_messages(messages, schema, key_names, bookmark_names):
     l_half = serialize_gate_messages(messages[:pivot], schema, key_names, bookmark_names)
     r_half = serialize_gate_messages(messages[pivot:], schema, key_names, bookmark_names)
     return l_half + r_half
-
-
-def strptime_format1(d):
-    return datetime.strptime(d, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.UTC)
-
-def strptime_format2(d):
-    return datetime.strptime(d, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.UTC)
-
-def strptime_format_fallback(d):
-    return dateutil.parser.parse(d)
-
-def strptime(d):
-    """
-    The target should only encounter date-times consisting of the formats below.
-    They are compatible with singer-python's strftime function.
-    """
-    for fn in [strptime_format1, strptime_format2, strptime_format_fallback]:
-        try:
-            return fn(d)
-        except:
-            pass
-    raise Exception("Got an unparsable datetime: {}".format(d))
