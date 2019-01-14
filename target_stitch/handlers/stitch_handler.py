@@ -21,7 +21,6 @@ from target_stitch.exceptions import TargetStitchException
 from jsonschema import SchemaError, ValidationError, Draft4Validator, FormatChecker
 from target_stitch.handlers.common import ensure_multipleof_is_decimal, marshall_decimals, marshall_date_times, MAX_NUM_GATE_RECORDS, serialize_gate_messages, determine_table_version, generate_sequence
 from jsonschema.exceptions import UnknownType
-import multiprocessing
 
 LOGGER = singer.get_logger().getChild('target_stitch')
 MESSAGE_VERSION=2
@@ -33,6 +32,15 @@ S3_THRESHOLD_BYTES=(1 * 1024 * 1024)
 SYNTHETIC_PK='__sdc_primary_key'
 TIME_EXTRACTED='_sdc_extracted_at'
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
+
+def json_dump(d):
+    return json.dumps(d, cls=DecimalEncoder).encode('utf-8')
+
 def now():
     return singer.utils.strftime(singer.utils.now())
 
@@ -41,30 +49,6 @@ def _log_backoff(details):
     LOGGER.info(
         'Error sending data to Stitch. Sleeping %d seconds before trying again: %s',
         details['wait'], exc)
-
-def encode_message(m):
-    with io.BytesIO() as buf:
-        LOGGER.info('in encode_message within pool!')
-        writer = Writer(buf, "msgpack")
-        writer.write(m)
-        LOGGER.info('in encode_message within pool: about to return')
-        return buf.getvalue()
-
-
-def transit_encode(pipeline_messages):
-    LOGGER.info("transit encoding records")
-
-    pool = multiprocessing.Pool()
-
-    LOGGER.info("transit encoding using %s cpus", os.cpu_count())
-    with TIMINGS.mode('transit_encode'):
-        return b"".join(pool.map_async(encode_message, pipeline_messages).get())
-            # for m in pipeline_messages:
-            #     writer.write(m)
-    # return data
-    pool.close()
-    pool.join()
-
 
 class StitchHandler: # pylint: disable=too-few-public-methods
     '''Sends messages to Stitch.'''
@@ -81,16 +65,16 @@ class StitchHandler: # pylint: disable=too-few-public-methods
         self.bucket = self.s3_conn.get_bucket(self.bucket_name, validate=False)
         self.send_methods = {}
 
-    def post_to_s3(self, data, num_records, table_name):
-        key_name = self.generate_s3_key(data)
+    def post_to_s3(self, json_string, num_records, table_name):
+        key_name = self.generate_s3_key(json_string)
         k = Key(self.bucket)
         k.key = key_name
         LOGGER.info("Sending batch with %d messages/(%d) bytes for table %s to s3 %s",
-                    num_records, len(data), table_name, key_name)
+                    num_records, len(json_string), table_name, key_name)
 
         with TIMINGS.mode('post_to_s3'):
             start_persist = time.time()
-            k.set_contents_from_string(data)
+            k.set_contents_from_string(json_string)
             persist_time = int((time.time() - start_persist) * 1000)
 
         return (key_name, persist_time)
@@ -98,9 +82,6 @@ class StitchHandler: # pylint: disable=too-few-public-methods
     def serialize_s3_upsert_messages(self, records, schema, table_name, key_names, table_version ):
         pipeline_messages = []
         for idx, msg in enumerate(records):
-            with TIMINGS.mode('marshall_date_times'):
-                marshalled_msg = marshall_date_times(schema, msg)
-
             with TIMINGS.mode('build_pipeline_messages'):
                 pipeline_message = {'message_version' : MESSAGE_VERSION,
                                     'pipeline_version' : PIPELINE_VERSION,
@@ -174,6 +155,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                 else:
                     self.send_methods[table_name] = 'gate'
 
+            # self.send_methods[table_name] = 's3'
             if (self.send_methods.get(table_name) == 's3'):
                 self.handle_s3(messages, schema, key_names, bookmark_names=None)
             else:
@@ -238,8 +220,10 @@ class StitchHandler: # pylint: disable=too-few-public-methods
 
         table_version = determine_table_version(messages[0])
         pipeline_messages = self.serialize_s3_upsert_messages(records, schema, table_name, key_names, table_version)
-        data = transit_encode(pipeline_messages)
-        key_name, persist_time = self.post_to_s3(data, num_records, table_name)
+        json_string = json_dump(schema)
+        json_string += b"\n"
+        json_string += b"\n".join(json_dump(m) for m in pipeline_messages)
+        key_name, persist_time = self.post_to_s3(json_string, num_records, table_name)
 
         with TIMINGS.mode('post_to_spool'):
             body = {
@@ -252,9 +236,9 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                 "s3_key": key_name,
                 "s3_bucket": self.bucket_name,
                 "num_records": num_records,
-                "num_bytes": len(data),
-                "format": "transit+msgpack",
-                "format_version": "0.8.281",
+                "num_bytes": len(json_string),
+                "format": "json+schema",
+                "format_version": "1.0.0",
                 "persist_duration_millis": persist_time,
             }
             self.post_to_spool(body)
