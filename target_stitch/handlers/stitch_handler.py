@@ -194,7 +194,8 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                         record[SYNTHETIC_PK] = str(uuid.uuid4())
 
                     if msg.time_extracted:
-                        record[TIME_EXTRACTED] = msg.time_extracted.replace(tzinfo=pytz.UTC)
+                        record[TIME_EXTRACTED] = singer.utils.strftime(
+                            msg.time_extracted.replace(tzinfo=pytz.UTC))
 
                 except ValidationError as exc:
                     raise ValueError('Record({}) does not conform to schema. Please see logs for details.'
