@@ -181,6 +181,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
 
         LOGGER.info("validating records")
         records = []
+        found_time_extrated = False
         with TIMINGS.mode('validate_records'):
             for msg in messages:
                 record = marshall_decimals(schema, msg.record)
@@ -194,6 +195,7 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                         record[SYNTHETIC_PK] = str(uuid.uuid4())
 
                     if msg.time_extracted:
+                        found_time_extrated = True
                         record[TIME_EXTRACTED] = singer.utils.strftime(
                             msg.time_extracted.replace(tzinfo=pytz.UTC))
 
@@ -207,6 +209,12 @@ class StitchHandler: # pylint: disable=too-few-public-methods
                 records.append(record)
             if not key_names:
                 key_names = [SYNTHETIC_PK]
+
+        if found_time_extrated:
+            schema["properties"][TIME_EXTRACTED] = {
+                "type": ["null", "string"],
+                "format": "date-time",
+            }
 
         with TIMINGS.mode('bookmark_data'):
             if bookmark_names:
