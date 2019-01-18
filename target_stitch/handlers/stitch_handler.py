@@ -35,7 +35,7 @@ TIME_EXTRACTED='_sdc_extracted_at'
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Decimal):
-            return str(o)
+            return float(o)
         return super(DecimalEncoder, self).default(o)
 
 def json_dump(d):
