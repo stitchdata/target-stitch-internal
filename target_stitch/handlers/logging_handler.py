@@ -15,7 +15,6 @@ class LoggingHandler:  # pylint: disable=too-few-public-methods
         output file should contain the exact request bodies that we would
         send to Stitch.
         '''
-        schema = ensure_multipleof_is_float(schema)
         LOGGER.info("Saving batch with %d messages for table %s to %s",
                     len(messages), messages[0].stream, self.output_file.name)
 
